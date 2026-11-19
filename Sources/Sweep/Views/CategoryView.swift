@@ -91,6 +91,7 @@ private struct ItemRow: View {
             Toggle(label.title, isOn: Binding(get: { selected }, set: { _ in model.toggle(item) }))
                 .toggleStyle(.checkbox)
                 .labelsHidden()
+                .tint(rule.level.tint)
                 .disabled(item.blocked != nil)
             Image(nsImage: label.icon)
                 .resizable()

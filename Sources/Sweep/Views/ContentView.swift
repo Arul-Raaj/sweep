@@ -11,7 +11,13 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
         } detail: {
             detail
-                .overlay(alignment: .bottom) { Banner(text: model.banner) }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if model.showsCleanBar {
+                        CleanBar(model: model)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.snappy(duration: 0.25), value: model.showsCleanBar)
         }
         .toolbar {
             ToolbarItem {
@@ -24,18 +30,12 @@ struct ContentView: View {
                 .keyboardShortcut("r")
                 .disabled(model.phase != .ready)
             }
-            // The overview has its own large Clean button; elsewhere it lives here.
-            if model.focused != nil {
-                ToolbarItem(placement: .primaryAction) {
-                    CleanButton(model: model)
-                }
-            }
         }
         .confirmationDialog(
-            "Clean \(formatBytes(model.selectedBytes))?",
+            "Clean up \(formatBytes(model.selectedBytes))?",
             isPresented: $model.confirming
         ) {
-            Button("Clean", role: .destructive) { Task { await model.clean() } }
+            Button("Clean Up", role: .destructive) { Task { await model.clean() } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.selectionIncludesTrash

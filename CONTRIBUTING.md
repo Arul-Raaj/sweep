@@ -15,6 +15,13 @@ swift build && SWEEP_HOME=/tmp/sweep-demo "$(swift build --show-bin-path)/Sweep"
 
 Use `SWEEP_HOME` while developing, so the app never looks at your real files.
 
+For interface changes, debug builds can render the window to a PNG from the demo home,
+without screen access. Attach before/after images to UI pull requests:
+
+```bash
+SWEEP_HOME=/tmp/sweep-demo "$(swift build --show-bin-path)/Sweep" snapshot out.png [category-id] [--select 1|2|3|category-id] [--clean] [--light]
+```
+
 ## Adding a cleaning rule
 
 Rules live in `Sources/SweepCore/Rule.swift`. A new rule needs:

@@ -10,7 +10,12 @@ final class Model {
     private(set) var phase = Phase.scanning
     private(set) var findings: [Finding] = []
     private(set) var disk = DiskSpace.current()
-    private(set) var banner: String?
+    /// A short result or error shown in the clean bar for a few seconds.
+    struct Banner: Equatable {
+        let text: String
+        let success: Bool
+    }
+    private(set) var banner: Banner?
     private(set) var weekly = Schedule.isOn
     var selected: Set<URL> = []
     /// Optional only because List selection can be cleared; nothing selected means the overview.
@@ -37,6 +42,9 @@ final class Model {
     var selectedItems: [Item] { findings.flatMap { $0.cleanable.filter { selected.contains($0.url) } } }
     var selectedBytes: Int64 { selectedItems.reduce(0) { $0 + $1.bytes } }
     var cleanableBytes: Int64 { findings.reduce(0) { $0 + $1.bytes } }
+
+    /// The bottom bar shows while something is selected, a clean runs, or a result is showing.
+    var showsCleanBar: Bool { !selectedItems.isEmpty || phase == .cleaning || banner != nil }
 
     /// True if anything selected will go to the Trash rather than be deleted.
     var selectionIncludesTrash: Bool {
@@ -116,7 +124,7 @@ final class Model {
 
         guard let report else {
             phase = .ready
-            show("Another clean is running. Try again in a moment.")
+            show("Another clean is running. Try again in a moment.", success: false)
             return
         }
 
@@ -133,7 +141,7 @@ final class Model {
             disk = DiskSpace.current()
         }
         phase = .ready
-        show(summary(report))
+        show(summary(report), success: report.failures.isEmpty)
 
         // APFS releases space a moment after deletion; refresh once more.
         try? await Task.sleep(for: .seconds(2))
@@ -152,7 +160,7 @@ final class Model {
                     return error.localizedDescription
                 }
             }.value
-            if let failure { show(failure) }
+            if let failure { show(failure, success: false) }
             weekly = Schedule.isOn
         }
     }
@@ -174,7 +182,8 @@ final class Model {
         return parts.joined(separator: " · ")
     }
 
-    private func show(_ message: String) {
+    private func show(_ text: String, success: Bool) {
+        let message = Banner(text: text, success: success)
         withAnimation(.snappy) { banner = message }
         Task {
             try? await Task.sleep(for: .seconds(4))

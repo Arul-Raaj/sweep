@@ -57,13 +57,17 @@ Sweep scans when you open it (about 15 seconds) and sorts what it finds into thr
 | **Rebuildable** | Comes back, but costs a download, an install or a rebuild. | No | Deleted |
 | **Review** | Your own files. Only you can judge. | No | Moved to the Trash |
 
-Press **Clean** (⌘⌫) to remove what's selected. Click any level or category to see every
-item with its size, full path and last-used date, untick anything, or show it in Finder.
-Every category explains three things: what the files are, why removing them is safe,
-and what you'll notice afterwards.
+As soon as anything is selected, a bar appears at the bottom of the window with a green
+**Clean up** button and what's in the selection, by colour: **green** is safe, **blue** is
+rebuildable, **orange** is for you to review. The same colours mark every category in the
+sidebar and every checkbox. Press **Clean up** (⌘⌫) and confirm.
+
+Click any level or category to see every item with its size, full path and last-used
+date, untick anything, or show it in Finder. Every category explains three things: what
+the files are, why removing them is safe, and what you'll notice afterwards.
 
 When it's done you hear the familiar Finder empty-trash sound (it follows your "Play user
-interface sound effects" setting) and see how much space came back.
+interface sound effects" setting) and the bar shows how much space came back.
 
 ## What it finds
 
@@ -179,6 +183,13 @@ Other build commands:
 ./build.sh                  # build build/Sweep.app only
 ./build.sh release          # universal app, packaged as build/Sweep-<version>.dmg and .zip
 ./test.sh                   # run the tests
+```
+
+To check the interface without touching your files or needing screen access, debug builds
+can render the window to an image from a demo home:
+
+```bash
+SWEEP_HOME=/tmp/sweep-demo "$(swift build --show-bin-path)/Sweep" snapshot out.png node_modules --select 3
 ```
 
 **Signing:** `build.sh` signs with `$SWEEP_SIGN_IDENTITY`, or with an "Apple Development"

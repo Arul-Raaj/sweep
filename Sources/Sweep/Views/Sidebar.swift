@@ -45,7 +45,9 @@ private struct CategoryRow: View {
                 }
             }
         } icon: {
+            // Coloured by level: green safe, blue rebuildable, orange to review.
             Image(systemName: finding.rule.symbol)
+                .foregroundStyle(finding.rule.level.tint)
         }
     }
 }

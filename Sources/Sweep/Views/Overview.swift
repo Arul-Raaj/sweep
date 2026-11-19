@@ -21,8 +21,6 @@ struct Overview: View {
                 .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
                 .redacted(reason: model.phase == .scanning && model.findings.isEmpty ? .placeholder : [])
-
-                CleanButton(model: model, large: true)
             }
             .frame(maxWidth: 560)
             .padding(.horizontal, 32)
@@ -78,6 +76,7 @@ private struct LevelRow: View {
             Toggle(level.title, isOn: Binding(get: { model.isOn(level) }, set: { model.set(level, on: $0) }))
                 .toggleStyle(.checkbox)
                 .labelsHidden()
+                .tint(level.tint)
                 .disabled(total == 0)
                 .padding(.top, 9)
 

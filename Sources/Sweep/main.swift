@@ -5,6 +5,12 @@ let args = Array(CommandLine.arguments.dropFirst())
 
 if args.isEmpty || args.first?.hasPrefix("-psn") == true {
     SweepApp.main()
-} else {
-    exit(CLI.run(args))
 }
+
+#if DEBUG
+if args.first == "snapshot" {
+    exit(Snapshot.run(Array(args.dropFirst())))
+}
+#endif
+
+exit(CLI.run(args))
