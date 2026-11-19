@@ -1,0 +1,39 @@
+name: Release
+
+# Push a tag that matches the version in App/Info.plist (e.g. v1.0.0) to build the
+# universal app and attach the DMG, zip and checksums to a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the app version
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' App/Info.plist)"
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match App/Info.plist version $VERSION"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: ./test.sh
+
+      - name: Build release
+        run: ./build.sh release
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Sweep-$VERSION.dmg" "build/Sweep-$VERSION.zip" "build/Sweep-$VERSION.sha256" \
+            --title "Sweep $VERSION" --generate-notes
