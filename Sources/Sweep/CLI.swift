@@ -72,13 +72,21 @@ enum CLI {
             return 0
 
         case "version", "--version":
-            print("Sweep \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
+            print("Sweep \(version)")
             return 0
 
         default:
             print(usage)
             return 64
         }
+    }
+
+    /// Read from the app bundle the real executable lives in, so it's right even when
+    /// `sweep` is run through a symlink (where Bundle.main can't find the Info.plist).
+    static var version: String {
+        let app = executable.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bundle = Bundle(url: app) ?? .main
+        return bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
     }
 
     static var executable: URL {
