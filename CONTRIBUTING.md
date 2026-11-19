@@ -43,8 +43,13 @@ Rules live in `Sources/SweepCore/Rule.swift`. A new rule needs:
 6. **A source.** In the pull request, link the tool's documentation or another reliable
    source that says the files are safe to remove.
 
-If the right way to clean something is the owner's own command (`brew cleanup`,
-`pnpm store prune`, `tmutil`) or a setting, Sweep shouldn't delete the files directly.
+If the right way to clean something is the owner's own command, Sweep shouldn't delete
+the files directly. Use an `.ownerCommand` rule instead (see `uv`, `pnpm` and `brew` in
+`Rule.swift`): it finds the tool at absolute paths only, asks it where its cache is,
+measures it, and runs the tool's cleanup. Tests use a fake tool script in the fake home's
+`opt/homebrew/bin`; when the home isn't yours, Sweep only looks for tools inside it, so
+tests and `SWEEP_HOME` demos never run the real ones. For settings (`tmutil`, iCloud),
+explain in the app instead.
 
 ## Code
 

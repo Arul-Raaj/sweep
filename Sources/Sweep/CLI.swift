@@ -110,7 +110,11 @@ enum CLI {
             let total = group.reduce(0) { $0 + $1.bytes }
             print("\n\(level.rawValue) \(level.title.uppercased())  \(total > 0 ? formatBytes(total) : "–")")
             for finding in group {
-                let detail = finding.note ?? (finding.bytes > 0 ? formatBytes(finding.bytes) : "–")
+                var detail = finding.note ?? (finding.bytes > 0 ? formatBytes(finding.bytes) : "–")
+                // The tool removes only part of what was measured.
+                if case let .ownerCommand(cmd) = finding.rule.kind, cmd.measuresWholeCache, finding.note == nil, finding.bytes > 0 {
+                    detail = "up to " + detail
+                }
                 let inUse = finding.items.count - finding.cleanable.count
                 print("  \(pad(finding.rule.name, 30))\(detail)" + (inUse > 0 ? "  (\(inUse) in use)" : ""))
                 guard verbose else { continue }

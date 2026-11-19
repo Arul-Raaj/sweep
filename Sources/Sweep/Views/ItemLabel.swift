@@ -32,7 +32,11 @@ struct ItemLabel {
             let names = Set(item.parts.map(\.lastPathComponent)).sorted()
             subtitle = names.prefix(3).joined(separator: ", ") + (names.count > 3 ? " +\(names.count - 3) more" : "")
         }
-        if case .staleProjects = rule.kind {
+        if case let .ownerCommand(cmd) = rule.kind {
+            // Cleaned by a command, not deleted: say which command runs, and where.
+            title = rule.name
+            subtitle = "Runs \(cmd.display) · \(tilde(iconPath))"
+        } else if case .staleProjects = rule.kind {
             let project = item.url.deletingLastPathComponent()
             title = projectTitle(project)
             iconPath = project.path(percentEncoded: false)

@@ -80,9 +80,12 @@ interface sound effects" setting) and the bar shows how much space came back.
 | Recommended | Simulator caches | `~/Library/Developer/CoreSimulator/Caches` | Always |
 | Recommended | Old logs | `~/Library/Logs` | Older than 7 days |
 | Recommended | Old Trash | `~/.Trash` | Trashed more than 30 days ago |
+| Recommended | uv cache | `~/.cache/uv`, cleaned with `uv cache prune` | uv is installed and not running |
+| Recommended | Homebrew | Old versions and downloads, cleaned with `brew cleanup` | Homebrew is installed and not running |
 | Rebuildable | node_modules | Projects in `~/Desktop`, `~/Documents`, `~/dev`, `~/Developer`, `~/Projects`, `~/code` | No activity in the project for 14 days |
 | Rebuildable | Build output | `.next`, `.turbo`, `.nuxt`, `.svelte-kit`, `.parcel-cache`, `.angular` in those projects | No activity for 14 days |
 | Rebuildable | npm and Bun caches | `~/.npm/_cacache`, `~/.bun/install/cache` | Always |
+| Rebuildable | pnpm store | `~/Library/pnpm/store`, cleaned with `pnpm store prune` | pnpm is installed and not running |
 | Rebuildable | Claude Cowork sandbox | The VM Claude's desktop app uses for Cowork | Only removable while Claude is closed |
 | Rebuildable | Xcode build data | `~/Library/Developer/Xcode/DerivedData` | Always |
 | Rebuildable | Xcode device support | `~/Library/Developer/Xcode/*DeviceSupport` | Unused for 30 days |
@@ -117,6 +120,14 @@ interface sound effects" setting) and the bar shows how much space came back.
   own cache layout inside a real Chromium profile, so a random folder named "Cache" is ignored.
 - **"Unused project" errs towards active.** Any file change, git activity (worktrees
   included) or install counts; a project too large to check fully counts as active.
+- **Package managers clean their own caches.** uv, pnpm and Homebrew say not to delete
+  their caches by hand, so Sweep runs their own cleanup (`uv cache prune`,
+  `pnpm store prune`, `brew cleanup`) instead of deleting anything. It only lists them when
+  the tool is installed in a standard place (`/opt/homebrew/bin`, `/usr/local/bin`,
+  `~/.local/bin`, `~/Library/pnpm`), skips them while the tool is running or using its
+  cache, stops a command that runs too long, and reports the space actually freed,
+  measured before and after. uv and pnpm remove only what nothing uses, so their rows
+  say "up to".
 - **Symlinks are removed, never followed.**
 - **One clean at a time,** and failures are skipped and logged, never fatal.
 

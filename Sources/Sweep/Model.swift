@@ -129,11 +129,12 @@ final class Model {
         }
 
         if report.removed > 0 { Feedback.emptiedTrash() }
-        // An item is gone when everything it removes is gone (an app's caches, not its folder).
+        // An item is gone when everything it removes is gone (an app's caches, not its folder),
+        // or when its tool's own cleanup ran (the cache folder itself stays).
         let fm = FileManager.default
         let gone = Set(chosen.flatMap(\.items)
             .filter { $0.targets.allSatisfy { !fm.fileExists(atPath: $0.path) } }
-            .map(\.url))
+            .map(\.url)).union(report.ran)
         withAnimation(.smooth(duration: 0.4)) {
             findings = findings.map { Finding(rule: $0.rule, items: $0.items.filter { !gone.contains($0.url) }, note: $0.note) }
             selected.subtract(gone)

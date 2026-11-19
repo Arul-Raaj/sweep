@@ -51,6 +51,8 @@ public struct CleanReport: Sendable {
     /// Items skipped because they were in use (used again since the scan, or their app is open).
     public var kept = 0
     public var failures: [(path: String, reason: String)] = []
+    /// Items cleaned by their owner's command. The cache folder stays, so this is how to tell they're done.
+    public var ran: [URL] = []
 
     public init() {}
 }
@@ -69,7 +71,8 @@ public enum Sweeper {
         return results.withLock { $0.compactMap { $0 } }
     }
 
-    private static func scan(_ rule: Rule, home: URL, now: Date, openFiles: OpenFiles?, projects: ProjectIndex) -> Finding {
+    /// nil when the rule doesn't apply to this Mac (its tool isn't installed).
+    private static func scan(_ rule: Rule, home: URL, now: Date, openFiles: OpenFiles?, projects: ProjectIndex) -> Finding? {
         switch rule.kind {
         case let .contents(dirs, days, age, filter):
             let block = rule.guardedBy.flatMap { appBlock(owner: $0, openFiles: openFiles) }
@@ -79,6 +82,8 @@ public enum Sweeper {
                                      cutoff: cutoff(days, now) ?? now, index: projects)
         case let .webCaches(roots):
             return scanWebCaches(rule, roots: roots, now: now, openFiles: openFiles)
+        case let .ownerCommand(cmd):
+            return scanOwnerCommand(rule, cmd, home: home, now: now, openFiles: openFiles)
         }
     }
 
@@ -99,14 +104,21 @@ public enum Sweeper {
     private static func needsOpenFiles(_ rules: [Rule]) -> Bool {
         rules.contains { rule in
             if rule.guardedBy != nil { return true }
-            if case .webCaches = rule.kind { return true }
-            return false
+            switch rule.kind {
+            case .webCaches, .ownerCommand: return true
+            default: return false
+            }
         }
     }
 
     private static func clean(_ item: Item, rule: Rule, home: URL, now: Date, openFiles: OpenFiles?,
                               into report: inout CleanReport) {
         guard item.blocked == nil else { report.kept += 1; return }
+        // Sweep never deletes these files itself; the tool that owns them cleans them.
+        if case let .ownerCommand(cmd) = rule.kind {
+            cleanOwnerCommand(item, rule: rule, cmd, home: home, now: now, openFiles: openFiles, into: &report)
+            return
+        }
         if let unsafe = item.targets.first(where: { !Safety.allows($0, rule: rule, home: home) }) {
             report.failures.append((unsafe.path(percentEncoded: false), "blocked by safety check"))
             return
@@ -141,7 +153,7 @@ public enum Sweeper {
     }
 
     /// Anything written to this recently is treated as in use, whatever the rule.
-    private static let settleTime: TimeInterval = 120
+    static let settleTime: TimeInterval = 120
 
     /// True if the item would still be selected, and not blocked, by its rule right now.
     static func stillMatches(_ item: Item, rule: Rule, home: URL, now: Date, openFiles: OpenFiles? = nil) -> Bool {
@@ -160,6 +172,8 @@ public enum Sweeper {
         case .webCaches:
             let newest = item.targets.map { measure($0).newest }.max() ?? .distantPast
             return webCacheBlock(owner: item.url, newest: newest, now: now, openFiles: openFiles) == nil
+        case let .ownerCommand(cmd):
+            return ownerCommandReady(item, cmd, now: now, openFiles: openFiles) != nil
         }
     }
 
@@ -224,6 +238,9 @@ public enum Sweeper {
 
     /// Allocated size and newest modification date of a file or folder tree. Never follows symlinks.
     static func measure(_ url: URL) -> Usage {
+        // URLs cache what they read; a second measure (after cleaning) must look again.
+        var url = url
+        url.removeAllCachedResourceValues()
         let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .contentModificationDateKey, .isDirectoryKey, .isSymbolicLinkKey]
         var usage = Usage()
         func add(_ v: URLResourceValues) {

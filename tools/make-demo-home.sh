@@ -71,6 +71,50 @@ project "todo-app" 256 0 0     # active: kept
 file ".npm/_cacache/content-v2/sha512/aa" 768;          age ".npm" 2
 file "Library/Developer/Xcode/DerivedData/Acme-fx2/Build/x" 512; age "Library/Developer/Xcode/DerivedData" 2
 
+# Package managers that clean their own caches. These are fake tools inside the demo
+# home (with SWEEP_HOME set, Sweep only looks for tools there, never in /opt/homebrew);
+# they answer like the real ones and prune only the demo's files.
+tool() { mkdir -p "$(dirname "$1")"; cat > "$1"; chmod +x "$1"; }
+
+file ".cache/uv/archive-v0/7Fq2/torch/x" 384; file ".cache/uv/wheels-v5/pypi/requests/x" 48; age ".cache/uv" 5
+tool "opt/homebrew/bin/uv" <<'TOOL'
+#!/bin/sh
+case "$1 $2" in
+"cache dir") echo "$HOME/.cache/uv" ;;
+"cache prune") rm -rf "$HOME/.cache/uv/archive-v0"; echo "Removed 1 directory" ;;
+*) exit 2 ;;
+esac
+TOOL
+
+file "Library/Caches/Homebrew/downloads/node--22.1.0.arm64_sequoia.bottle.tar.gz" 96
+file "Library/Caches/Homebrew/downloads/node--23.3.0.arm64_sequoia.bottle.tar.gz" 96
+file "opt/homebrew/Cellar/node/22.1.0/bin/node" 160
+file "opt/homebrew/Cellar/node/23.3.0/bin/node" 160
+age "Library/Caches/Homebrew" 12; age "opt/homebrew/Cellar" 12
+tool "opt/homebrew/bin/brew" <<'TOOL'
+#!/bin/sh
+C="$HOME/Library/Caches/Homebrew"
+case "$*" in
+"--cache") echo "$C" ;;
+"cleanup --dry-run")
+    echo "Would remove: $C/downloads/node--22.1.0.arm64_sequoia.bottle.tar.gz (96.0MB)"
+    echo "Would remove: $HOME/opt/homebrew/Cellar/node/22.1.0 (1 file, 160.0MB)"
+    echo "==> This operation would free approximately 256.0MB of disk space." ;;
+"cleanup") rm -rf "$C/downloads/node--22.1.0.arm64_sequoia.bottle.tar.gz" "$HOME/opt/homebrew/Cellar/node/22.1.0" ;;
+*) exit 2 ;;
+esac
+TOOL
+
+file "Library/pnpm/store/v10/files/00/unused" 512; file "Library/pnpm/store/v10/files/01/used" 128; age "Library/pnpm/store" 9
+tool "Library/pnpm/pnpm" <<'TOOL'
+#!/bin/sh
+case "$1 $2" in
+"store path") echo "$HOME/Library/pnpm/store/v10" ;;
+"store prune") rm -rf "$HOME/Library/pnpm/store/v10/files/00"; echo "Removed 1 package" ;;
+*) exit 2 ;;
+esac
+TOOL
+
 # Review: an old Xcode archive. Personal files that must never be listed.
 file "Library/Developer/Xcode/Archives/2025-03-14/Acme 1.0.xcarchive/dSYMs/x" 256
 age "Library/Developer/Xcode/Archives" 150

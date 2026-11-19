@@ -39,11 +39,35 @@ public enum Safety {
                   Sweeper.isWebCache(url)
             else { return false }
             return roots.contains { components(of: targetPath, below: $0) >= 2 }
+
+        case .ownerCommand:
+            // Its files are only ever removed by their own tool, never by Sweep.
+            return false
         }
     }
 
+    /// True if Sweep may run `tool` to clean `cache` for this rule: the rule's own tool,
+    /// in one of its install folders, and a real cache folder inside home.
+    public static func allowsCommand(_ tool: URL, cache: URL, rule: Rule, home: URL) -> Bool {
+        guard case let .ownerCommand(cmd) = rule.kind,
+              tool.isFileURL, cache.isFileURL,
+              !tool.pathComponents.contains(".."), !cache.pathComponents.contains(".."),
+              tool.lastPathComponent == cmd.tool,
+              cmd.searchDirs.contains(where: { $0.standardizedFileURL.path == tool.deletingLastPathComponent().standardizedFileURL.path }),
+              isToolExecutable(tool)
+        else { return false }
+        return isRealDirectory(cache) && components(of: cache.resolvingSymlinksInPath().path(percentEncoded: false), below: home) >= 2
+    }
+
+    /// An executable regular file (following a symlink, as Homebrew installs tools).
+    static func isToolExecutable(_ url: URL) -> Bool {
+        let path = url.path(percentEncoded: false)
+        let values = try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.isRegularFileKey])
+        return values?.isRegularFile == true && FileManager.default.isExecutableFile(atPath: path)
+    }
+
     /// How many path components `path` sits below `root`; 0 if it isn't inside it.
-    private static func components(of path: String, below root: URL) -> Int {
+    static func components(of path: String, below root: URL) -> Int {
         let r = root.resolvingSymlinksInPath().path(percentEncoded: false)
         let prefix = r.hasSuffix("/") ? r : r + "/"
         guard path.hasPrefix(prefix) else { return 0 }

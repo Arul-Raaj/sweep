@@ -76,6 +76,9 @@ public struct Rule: Sendable, Identifiable {
         /// Remove the Chromium/Electron cache folders inside each app folder under `roots`,
         /// grouped per app, skipping apps that are open or used them recently.
         case webCaches(roots: [URL])
+        /// Measure a tool's cache and clean it with the tool's own command. Sweep deletes
+        /// nothing itself. Only listed when the tool is installed.
+        case ownerCommand(OwnerCommand)
     }
 
     public let id: String
@@ -119,6 +122,7 @@ public extension Rule {
                          temp: URL = FileManager.default.temporaryDirectory) -> [Rule] {
         func h(_ path: String) -> URL { home.appending(path: path, directoryHint: .isDirectory) }
         let projectRoots = ["Desktop", "Documents", "dev", "Developer", "Projects", "code"].map(h)
+        let tools = toolDirs(home: home)
         return [
             // MARK: Recommended
 
@@ -133,7 +137,7 @@ public extension Rule {
             Rule(id: "caches", name: "App caches", symbol: "square.stack.3d.up", level: .recommended,
                  kind: .contents(dirs: [h("Library/Caches")], days: 3, age: .modified, filter: Filter(except: [
                     "com.apple.", "CloudKit", "GeoServices", "PassKit", "Animoji",
-                    "llama.cpp", "Buzz", "pypoetry", "pnpm", "ms-playwright", "Cypress", "kitty",
+                    "llama.cpp", "Buzz", "pypoetry", "pnpm", "ms-playwright", "Cypress", "kitty", "Homebrew",
                     "org.R-project.R", "com.spotify.client",
                  ])),
                  what: "Temporary files apps save so they load faster: downloaded images, thumbnails, web data.",
@@ -174,6 +178,23 @@ public extension Rule {
                  after: "They're gone for good. Items trashed in the last 30 days stay.",
                  dateVerb: "Trashed"),
 
+            // Package managers whose docs say to clean their caches with their own command.
+            Rule(id: "uv", name: "uv cache", symbol: "cube", level: .recommended,
+                 kind: .ownerCommand(OwnerCommand(tool: "uv", searchDirs: tools, locate: ["cache", "dir"],
+                                                  clean: ["cache", "prune"], processNames: ["uv", "uvx"])),
+                 what: "Python packages and builds that uv has downloaded, shared by all your Python projects. The size shown is the whole cache. uv removes only the parts nothing uses, so it may free less.",
+                 whySafe: "Sweep doesn't delete these files itself. It runs uv's own cleanup, uv cache prune, which removes only entries that are no longer used, and skips anything uv is using. uv's documentation says to clean its cache this way, never by hand. Skipped while uv is running.",
+                 after: "Nothing for your projects. A package you haven't used in a while may download again."),
+
+            Rule(id: "brew", name: "Homebrew", symbol: "mug", level: .recommended,
+                 kind: .ownerCommand(OwnerCommand(tool: "brew", searchDirs: tools, locate: ["--cache"],
+                                                  clean: ["cleanup"], preview: ["cleanup", "--dry-run"],
+                                                  environment: ["HOMEBREW_NO_AUTO_UPDATE": "1", "HOMEBREW_NO_ANALYTICS": "1",
+                                                                "HOMEBREW_NO_ENV_HINTS": "1"])),
+                 what: "Older versions of tools you installed with Homebrew, and downloads it no longer needs.",
+                 whySafe: "Sweep doesn't delete these files itself. It runs Homebrew's own cleanup, brew cleanup, which always keeps the version you have installed. Homebrew runs the same cleanup on its own from time to time. The list and size come from brew cleanup --dry-run. Skipped while Homebrew is running.",
+                 after: "Nothing changes. Going back to an older version of a tool means installing it again."),
+
             // MARK: Rebuildable
 
             Rule(id: "node_modules", name: "node_modules", symbol: "shippingbox", level: .rebuildable,
@@ -202,6 +223,13 @@ public extension Rule {
                  what: "Packages Bun has downloaded, kept to make later installs faster.",
                  whySafe: "Bun re-downloads anything missing from this cache automatically.",
                  after: "The next bun install takes a little longer."),
+
+            Rule(id: "pnpm", name: "pnpm store", symbol: "cube", level: .rebuildable,
+                 kind: .ownerCommand(OwnerCommand(tool: "pnpm", searchDirs: tools, locate: ["store", "path"],
+                                                  clean: ["store", "prune"], processNames: ["pnpm", "pnpx"])),
+                 what: "The shared store pnpm installs packages from, for all your JavaScript projects. The size shown is the whole store. pnpm removes only packages no project refers to, so it may free less.",
+                 whySafe: "Sweep doesn't delete these files itself. It runs pnpm's own cleanup, pnpm store prune. pnpm's documentation says to clean the store this way, never by hand. Your projects keep working, because each one has its own installed copy. Skipped while pnpm is running.",
+                 after: "The next pnpm install may download some packages again, so it takes a little longer."),
 
             Rule(id: "claudevm", name: "Claude Cowork sandbox", symbol: "cube.transparent", level: .rebuildable,
                  kind: .contents(dirs: [h("Library/Application Support/Claude/vm_bundles")], days: 0, age: .modified,

@@ -84,6 +84,12 @@ private struct ItemRow: View {
     let item: Item
     let rule: Rule
 
+    /// A tool that prunes only part of what's measured frees "up to" that much.
+    private var sizeText: String {
+        if case let .ownerCommand(cmd) = rule.kind, cmd.measuresWholeCache { return "Up to \(formatBytes(item.bytes))" }
+        return formatBytes(item.bytes)
+    }
+
     var body: some View {
         let label = ItemLabel.make(item, rule: rule)
         let selected = model.selected.contains(item.url)
@@ -108,7 +114,7 @@ private struct ItemRow: View {
             .help(item.targets.map { $0.path(percentEncoded: false) }.joined(separator: "\n"))
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(formatBytes(item.bytes)).monospacedDigit()
+                Text(sizeText).monospacedDigit()
                 if let blocked = item.blocked {
                     Label(blocked, systemImage: "lock.fill")
                         .font(.caption)
